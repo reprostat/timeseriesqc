@@ -10,18 +10,23 @@ function tsdiffana_tools = tbx_cfg_tsdiffana
 % ---------------------------------------------------------------------
 imgs         = cfg_files;
 imgs.tag     = 'imgs';
-imgs.name    = 'Image Series';
-imgs.help    = {'Select a time series of images.'};
+imgs.name    = 'Session';
+imgs.help    = {'Select a time series of images for this session.'};
 imgs.filter = 'image';
 imgs.ufilter = '.*';
 imgs.num     = [1 Inf];
+imgs.preview = @(f) spm_check_registration(char(f));
+
 % ---------------------------------------------------------------------
 % imgs_unused Sessions/Subjects
 % ---------------------------------------------------------------------
 imgs_unused         = cfg_repeat;
 imgs_unused.tag     = 'imgs_unused';
-imgs_unused.name    = 'Sessions/Subjects';
-imgs_unused.help    = {'Enter one or more time series. Each series will be processed independently.'};
+imgs_unused.name    = 'Data';
+imgs_unused.help    = {
+    'Add new sessions for this subject.'
+    'Each series will be processed independently.'
+    };
 imgs_unused.values  = {imgs };
 imgs_unused.num     = [1 Inf];
 % ---------------------------------------------------------------------
@@ -49,7 +54,7 @@ tsdiffana_timediff.name    = 'Analyse Time Series';
 tsdiffana_timediff.val     = {imgs_unused vf };
 tsdiffana_timediff.help    = {'Run time series diagnostics.'};
 tsdiffana_timediff.prog = @(job)run_tsdiffana('run','timediff',job);
-tsdiffana_timediff.vout = @(job)run_tsdiffana('vout','timediff',job);
+tsdiffana_timediff.vout = @vout_timediff;
 % ---------------------------------------------------------------------
 % tdfn Timeseries Analysis Data Files
 % ---------------------------------------------------------------------
@@ -97,3 +102,17 @@ tsdiffana_tools.forcestruct = true;
 % add path to this mfile
 % ---------------------------------------------------------------------
 addpath(fileparts(mfilename('fullpath')));
+
+%==========================================================================
+function dep = vout_timediff(job)
+for k=1:numel(job.imgs)
+    cdep(1)            = cfg_dep;
+    cdep(1).sname      = sprintf('TimeDiff Output (Sess %d)', k);
+    cdep(1).src_output = substruct('.','sess', '()',{k}, '.','tdfile');
+    cdep(1).tgt_spec   = cfg_findspec({{'filter','mat','strtype','e'}});
+    if k == 1
+        dep = cdep;
+    else
+        dep = [dep cdep];
+    end
+end
