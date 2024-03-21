@@ -22,14 +22,16 @@ switch cmd,
                 out.qa = qa;
                 varargout{1} = out;
             case 'tsdiffplot'
-                fg = spm_figure('GetWin', 'Graphics');
-                spm_figure('Clear');
+                fgs(1) = spm_figure('GetWin', 'Graphics1'); spm_figure('Clear',fgs(1),'Graphics1');
+                fgs(2) = spm_figure('GetWin', 'Graphics2'); spm_figure('Clear',fgs(2),'Graphics2');
                 for k = 1:numel(job.tdfn)
-                    h = tsdiffplot(job.tdfn{k}, fg);
-                    spm_figure('NewPage', h);
+                    h = tsdiffplot(job.tdfn{k}, fgs);
+                    spm_figure('NewPage', fgs(1));
+                    spm_figure('NewPage', fgs(2));
                 end
                 if job.doprint
-                    spm_figure('Print');
+                    print(fgs(1),'-djpeg','-r150','-noui',spm_file(job.tdfn{k},'suffix','_01','ext','jpg'));
+                    print(fgs(2),'-djpeg','-r150','-noui',spm_file(job.tdfn{k},'suffix','_02','ext','jpg'));
                 end
         end
     case 'vout'
