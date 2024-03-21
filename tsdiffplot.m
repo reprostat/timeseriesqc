@@ -78,7 +78,7 @@ dxt = tickstep:tickstep:imgno;
 
 for m = 1:size(datatoplot,2)
     figure(fgs(m));
-    
+
     for p = 1:size(datatoplot,1)
         h1 = axes('position', [.1 1-(.7+p-1)/subpno .6958 .65*1/subpno]);
         h2 = datatoplot{p,m}{1}{1}(datatoplot{p,m}{2:4});
@@ -94,19 +94,20 @@ for m = 1:size(datatoplot,2)
         end
         hs  = [hs; h2];
     end
-    
+
     if m == 1
         axes('position', [.1 1-3.7/subpno .6958 .65*1/subpno]);
         mx = max(sslicediff);
         mn = min(sslicediff);
         avg = mean(sslicediff);
-        h2 = errorbar(1:zno,avg,mn-avg,mx-avg,'r*','MarkerEdgeColor','k');
+        h2 = errorbar(1:zno,avg,mn,mx,'r*');
+        set(h2,'MarkerEdgeColor','k');
         xlabel('Slice');
         ylabel('Slice variance');
         legend(sprintf('Mean\nMin-Max'),'Location','Best');
         hs  = [hs; h2];
     end
-    
+
     % realignment params
     if any(flags == 'r')
         axes('position', [.1 1-4.7/subpno .6958 .65*1/subpno]);
@@ -116,7 +117,7 @@ for m = 1:size(datatoplot,2)
         ylabel('translations [mm]');
         hs  = [hs; h2];
     end
-    
+
     % and label with first image at bottom
     cp = get(gca,'Position');
     axes('Position', [0 0 1 1], 'Visible', 'off');
