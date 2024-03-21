@@ -1,6 +1,6 @@
-function qa = timediff(imgs, flags)
-% Analyses slice by slice variance across time series
-% FORMAT [imdiff, g, slicediff] = timediff(imgs, flags)
+function qc = timeseriesqc(imgs, flags)
+% Timeseries QC
+% FORMAT [imdiff, g, slicediff] = timeseriesqcs(imgs, flags)
 %
 % imgs  - string or cell or spm_vol list of images
 % flags - specify options; if contains:
@@ -8,9 +8,9 @@ function qa = timediff(imgs, flags)
 %                 (vsmax*) and scan to scan variance image (vscmean*)
 %           v   - create variance image for between each time point
 %
-% qa    - QA measures
+% qc    - QC measures
 %   imgs    - input
-%   global  - for each volume 
+%   global  - for each volume
 %       mean    - mean voxel signal intensity for each volume
 %       diff    - mean variance between each image in time series
 %       fft     - Fast Fourier Transform of the mean corrected for global mean
@@ -24,7 +24,7 @@ function qa = timediff(imgs, flags)
 % Matthew Brett 17/7/2000
 % Narender Ramnani & Tibor Auer 26/2/2018
 
-qa.imgs = imgs;
+qc.imgs = imgs;
 
 imgs = spm_vol(char(imgs));
 V1 = imgs(1);
@@ -92,15 +92,15 @@ for z = 1:zno % across slices
 end
 
 g = [mean(p1(:)); g/zno];
-qa.global.mean = g;
-qa.global.diff = mean(slicediff,2);
-gfft = abs(fft(g-mean(g))); qa.global.fft = gfft(2:end-1);
+qc.global.mean = g;
+qc.global.diff = mean(slicediff,2);
+gfft = abs(fft(g-mean(g))); qc.global.fft = gfft(2:end-1);
 
 s = [squeeze(mean(mean(p1)))'; slicemean];
-qa.slice.mean = s;
-qa.slice.diff = slicediff;
+qc.slice.mean = s;
+qc.slice.diff = slicediff;
 slicemean_norm = s - repmat(mean(s,1),size(s,1),1);
-sfft = abs(fft(slicemean_norm)); qa.slice.fft = sfft(2:end-1,:);
+sfft = abs(fft(slicemean_norm)); qc.slice.fft = sfft(2:end-1,:);
 end
 
 function Vo = makevol(Vi, prefix, datatype)

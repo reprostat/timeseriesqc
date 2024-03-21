@@ -1,8 +1,8 @@
-function hs = tsdiffplot(tdfn,fgs,flags, varargin)
-% tsfiffplot - plots image difference etc info
-% FORMAT tsdiffplot(tdfn,fgs,flags, varargin)
+function hs = timeseriesqc_plot(fnQC,fgs,flags, varargin)
+% timeseriesqc_plot - plots timeseries QC output
+% FORMAT timeseriesqc_plot(fnQC,fgs,flags, varargin)
 %
-% tdfn       - time difference file name - mat file with diff parameters
+% fnQC       - time difference file name - mat file with diff parameters
 % fg         - figure handle of figure to display in [spm graphics]
 % flags      - zero or more of
 %              'r' - display realignment parameters
@@ -11,7 +11,7 @@ function hs = tsdiffplot(tdfn,fgs,flags, varargin)
 %              or selected via the GUI if not present
 
 if nargin < 1
-    tdfn = spm_select(1, 'timediff.mat', 'Select time diff information');
+    fnQC = spm_select(1, 'timeseriesqc.mat', 'Select timeseries QC output');
 end
 if nargin < 2
     fgs = [];
@@ -34,7 +34,7 @@ if any(flags == 'r')
     else
         % need to get realignment parameter file
         rwcard = 'realignment*.txt';
-        [pn fn ext] = fileparts(tdfn);
+        [pn fn ext] = fileparts(fnQC);
         % check for realignment file in directory
         fs = dir(fullfile(pn, rwcard));
         if length(fs) > 1 || isempty(fs)
@@ -58,19 +58,18 @@ else
     subpno = 4;
 end
 
-load(tdfn)
-imgno = numel(qa.global.mean);
-zno =   size(qa.slice.mean,2);
-mom = mean(qa.global.mean);
-sslicediff = qa.slice.diff/mom;
-slicemean_norm = qa.slice.mean - repmat(mean(qa.slice.mean,1),size(qa.slice.mean,1),1);
+load(fnQC,'qc')
+imgno = numel(qc.global.mean);
+zno =   size(qc.slice.mean,2);
+mom = mean(qc.global.mean);
+sslicediff = qc.slice.diff/mom;
+slicemean_norm = qc.slice.mean - repmat(mean(qc.slice.mean,1),size(qc.slice.mean,1),1);
 
 datatoplot = {...
-    {{@plot}              2:imgno       qa.global.diff/mom  '-' 'Volume' 'Scaled variance'}              {{@imagesc @colorbar} 1:imgno     1:zno slicemean_norm'             'Volume' 'Scaled mean slice intensity'};...
-    {{@imagesc @colorbar} 2:imgno 1:zno sslicediff'             'Volume' 'Scaled slice variance'}        {{@imagesc @colorbar} 2:imgno-1   1:zno log(qa.slice.fft)'          'Number of cycles in timecourse' 'FFT of slice intensity [log]'};...
-    {{@plot}              1:imgno       qa.global.mean/mom  '-' 'Volume' 'Scaled mean voxel intensity'}  {{@plot}              2:imgno-1         log(qa.global.fft)      '-' 'Number of cycles in timecourse' 'FFT of mean intensity [log]'};...
+    {{@plot}              2:imgno       qc.global.diff/mom  '-' 'Volume' 'Scaled variance'}              {{@imagesc @colorbar} 1:imgno     1:zno slicemean_norm'             'Volume' 'Scaled mean slice intensity'};...
+    {{@imagesc @colorbar} 2:imgno 1:zno sslicediff'             'Volume' 'Scaled slice variance'}        {{@imagesc @colorbar} 2:imgno-1   1:zno log(qc.slice.fft)'          'Number of cycles in timecourse' 'FFT of slice intensity [log]'};...
+    {{@plot}              1:imgno       qc.global.mean/mom  '-' 'Volume' 'Scaled mean voxel intensity'}  {{@plot}              2:imgno-1         log(qc.global.fft)      '-' 'Number of cycles in timecourse' 'FFT of mean intensity [log]'};...
     };
-
 
 hs = [];
 tickstep = round(imgno/100)*10;
@@ -121,6 +120,6 @@ for m = 1:size(datatoplot,2)
     % and label with first image at bottom
     cp = get(gca,'Position');
     axes('Position', [0 0 1 1], 'Visible', 'off');
-    img1  = deblank(qa.imgs(1,:));
+    img1  = deblank(qc.imgs(1,:));
     text(0.5,cp(2)/2.5,{'First image:',img1},'HorizontalAlignment','center');
 end
