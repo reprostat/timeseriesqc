@@ -12,102 +12,90 @@ function qc = timeseriesqc(imgs, flags)
 %   imgs    - input
 %   global  - for each volume
 %       mean    - mean voxel signal intensity for each volume
-%       diff    - mean variance between each image in time series
+%       svd     - mean squared voxel difference (SVD) between each image in time series
 %       fft     - Fast Fourier Transform of the mean corrected for global mean
 %   slice   - for volume x slice
 %       mean    - mean voxel signal intensity for image x slices
-%       diff    - slice by slice variance between each image
+%       svd     - slice by slice squared voxel difference (SVD) between each image
 %       fft     - Fast Fourier Transform of the mean corrected for slice means
-
-
+%
+% DTP is a difference time point (2:T)
+% SVD is squared voxel difference (relative to the previous timepoint)
+% MSVD is the mean of this measure across voxels (one value)
 %
 % Matthew Brett 17/7/2000
 % Narender Ramnani & Tibor Auer 26/2/2018
+% Tibor Auer 23/3/2024
 
 qc.imgs = imgs;
 
-imgs = spm_vol(char(imgs));
-V1 = imgs(1);
-Vr = imgs(2:end);
+Vs = spm_vol(char(imgs));
+V1 = Vs(1);
+Vr = Vs(2:end);
 
-ndimgs = numel(imgs)-1;
-Hold = 0;
+nDTP = numel(Vs)-1;
+nSlice = V1.dim(3);
 
-if any(flags == 'v') % create variance images
-    for i = 1:ndimgs
-        vVr(i) = makevol(Vr(i),'v',16); % float
+Yp = spm_read_vols(V1);
+g = [mean(Yp(:)); zeros(nDTP,1)]; % global mean
+slicemean = [squeeze(mean(Yp,[1,2]))'; zeros(nDTP,nSlice)];
+slicesvd = zeros(nDTP,nSlice); % MSVD
+
+if any(flags == 'v')  % write individual SVD for each DTP
+    Vsvd = V1;
+    Vsvd.fname = spm_file(Vsvd.fname,'prefix','svd');
+end
+
+if any(flags == 'm')
+    Vmax = V1; Vmax.fname = spm_file(Vmax.fname,'prefix','maxsvd'); Vmax.dt(1) = spm_type('float32');
+    maxSVDslice = zeros(1,size(Yp,3)); % slicewise max SVD
+    maxSVD = zeros(size(Yp)); % voxelwise max SVD
+    Vmean = V1; Vmean.fname = spm_file(Vmean.fname,'prefix','meansvd'); Vmean.dt(1) = spm_type('float32');
+    sumSVD = zeros(size(Yp)); % voxelwise sum SVD for mean
+    Vvar = V1; Vvar.fname = spm_file(Vvar.fname,'prefix','varsvd'); Vvar.dt(1) = spm_type('float32');
+    sY = zeros(size(Yp)); % voxelwise max SVD
+    ssqY = zeros(size(Yp)); % voxelwise max SVD
+end
+
+for i = 1:nDTP
+    Y = spm_read_vols(Vr(i));
+
+    % mean
+    g(i+1) = mean(Y(:));
+    slicemean(i+1,:) = squeeze(mean(Y,[1,2]));
+
+    % SVD
+    svdY = (Y - Yp).^2;
+    slicesvd(i,:) = squeeze(mean(svdY,[1,2]));
+    Yp = Y;
+
+    if any(flags == 'v')
+        Vsvd.n(1) = i;
+        spm_write_vol(Vsvd,svdY);
     end
-end
-if any(flags == 'm') % mean /max variance
-    mVr = makevol(V1,'vmean',16);
-    sVr = makevol(V1,'vscmean',16);
-    xVr = makevol(V1,'vsmax',16);
-end
 
-[xydim, zno] = deal(V1.dim(1:2),V1.dim(3));
-
-p1 = spm_read_vols(V1);
-slicediff = zeros(ndimgs,zno);
-slicemean = zeros(ndimgs,zno);
-g = zeros(ndimgs,1);
-for z = 1:zno % across slices
-    M = spm_matrix([0 0 z]);
-    pr = p1(:,:,z); % this slice from first volume
     if any(flags == 'm')
-        [mv sx2 sx mxvs]  = deal(zeros(size(pr)));
-    end
-    % SVD is squared voxel difference (usually a slice of same)
-    % MSVD is the mean of this measure across voxels (one value)
-    % DTP is a difference time point (1:T-1)
-    cmax = 0; % counter for which slice has the largest MSVD
-    % note that Vr contains volumes 2:T (not the first)
-    for i = 1:ndimgs % across DTPs
-        c = spm_slice_vol(Vr(i),M,xydim,Hold); % get slice from this time point
-        slicemean(i,z) = mean(c(:));
-        v = (c - pr).^2; % SVD from this slice to last
-        slicediff(i,z) = mean(v(:)); % MSVD for this slice
-        g(i) = g(i) + mean(c(:)); % simple mean of data
-        if slicediff(i,z)>cmax  % if this slice has larger MSVD, keep
-            mxvs = v;
-            cmax = slicediff(i,z);
-        end
-        pr = c; % set current slice data as previous, for next iteration of loop
-        if any(flags == 'v') % write individual SVD slice for DTP
-            vVr(i) = spm_write_plane(vVr(i),v,z);
-        end
-        if any(flags == 'm')
-            mv = mv + v; % sum up SVDs for mean SVD (across time points)
-            sx = sx + c; % sum up data for simple variance calculation
-            sx2 = sx2 + c.^2; % sum up squared data for simple variance
-            % calculation
-        end
-    end
-    if any(flags == 'm') % mean variance etc
-        sVr = spm_write_plane(sVr,mv/(ndimgs),z); % write mean of SVDs
-        % across time
-        xVr = spm_write_plane(xVr,mxvs,z); % write maximum SVD
-        mVr = spm_write_plane(mVr,(sx2-((sx.^2)/ndimgs))./(ndimgs-1),z);
-        % (above) this is the one-pass simple variance formula
+        selSlice = slicesvd(i,:) > maxSVDslice;
+        maxSVD(:,:,selSlice) = svdY(:,:,selSlice);
+        maxSVDslice(selSlice) = slicesvd(i,selSlice);
+
+        sumSVD = sumSVD + svdY; % sum up SVDs for mean SVD (across time points)
+        sY = sY + Y; % sum up data for simple variance calculation
+        ssqY = ssqY + Y.^2; % sum up squared data for simple variance calculation
     end
 end
 
-g = [mean(p1(:)); g/zno];
+if any(flags == 'm')
+    spm_write_vol(Vmax,maxSVD);
+    spm_write_vol(Vmean,sumSVD/nDTP);
+    spm_write_vol(Vvar,(ssqY-(sY.^2)/nDTP)./(nDTP-1));
+end
+
 qc.global.mean = g;
-qc.global.diff = mean(slicediff,2);
+qc.global.svd = mean(slicesvd,2);
 gfft = abs(fft(g-mean(g))); qc.global.fft = gfft(2:end-1);
 
-s = [squeeze(mean(mean(p1)))'; slicemean];
-qc.slice.mean = s;
-qc.slice.diff = slicediff;
-slicemean_norm = s - repmat(mean(s,1),size(s,1),1);
+qc.slice.mean = slicemean;
+qc.slice.svd = slicesvd;
+slicemean_norm = slicemean - repmat(mean(slicemean,1),size(slicemean,1),1);
 sfft = abs(fft(slicemean_norm)); qc.slice.fft = sfft(2:end-1,:);
-end
-
-function Vo = makevol(Vi, prefix, datatype)
-Vo = Vi;
-fn = Vi.fname;
-[p, f, e] = fileparts(fn);
-Vo.fname = fullfile(p, [prefix f e]);
-Vo.dt = [datatype 0];
-Vo = spm_create_vol(Vo);
-end
