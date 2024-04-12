@@ -22,10 +22,15 @@ switch cmd,
                 out.qc = qc;
                 varargout{1} = out;
             case 'timeseriesqc_plot'
+                flags = ''; args = {};
                 fgs(1) = spm_figure('GetWin', 'Graphics1'); spm_figure('Clear',fgs(1),'Graphics1');
                 fgs(2) = spm_figure('GetWin', 'Graphics2'); spm_figure('Clear',fgs(2),'Graphics2');
                 for k = 1:numel(job.fnQC)
-                    h = timeseriesqc_plot(job.fnQC{k}, fgs);
+                    if isfield(job,'mocopar')
+                        flags = 'r';
+                        args = job.mocopar(k);
+                    end
+                    h = timeseriesqc_plot(job.fnQC{k}, fgs, flags, args{:});
                     spm_figure('NewPage', fgs(1));
                     spm_figure('NewPage', fgs(2));
                 end
