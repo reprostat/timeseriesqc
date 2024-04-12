@@ -110,7 +110,7 @@ for m = 1:size(datatoplot,2)
     % realignment params
     if any(flags == 'r')
         axes('position', [.1 1-4.7/subpno .6958 .65*1/subpno]);
-        h2 = plot(mparams(:,1:3));
+        h2 = plot(mparams(:,1:3)); % translation only
         legend('x translation','y translation','z translation','Location','Best')
         xlabel('image');
         ylabel('translations [mm]');
